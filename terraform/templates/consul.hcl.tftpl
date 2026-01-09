@@ -1,0 +1,12 @@
+datacenter = "${datacenter}"
+data_dir = "/opt/consul"
+bind_addr = "0.0.0.0"
+
+retry_join = ["provider=digitalocean tag_name=${tag_name}"]
+
+server = true
+bootstrap_expect = 3
+
+ui_config {
+    enabled = true
+}
