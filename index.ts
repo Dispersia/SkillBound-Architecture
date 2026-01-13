@@ -1,5 +1,6 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as digitalocean from "@pulumi/digitalocean";
+import * as std from "@pulumi/std";
 import * as fs from "fs";
 
 const project = new digitalocean.Project("SkillBound", {
@@ -9,7 +10,7 @@ const project = new digitalocean.Project("SkillBound", {
 
 const loadBalancer = new digitalocean.LoadBalancer("loadBalancer", {
   projectId: project.id,
-  region: "sfo3",
+  region: digitalocean.Region.SFO3,
   forwardingRules: [{
     entryProtocol: "http",
     entryPort: 80,
@@ -61,9 +62,15 @@ runcmd:
 `;
 };
 
-function createAutoScaledDroplets(name: string, tags: pulumi.Input<string>[]) {
-  return new digitalocean.DropletAutoscale(name, {
-    name: name,
+const sshKey = new digitalocean.SshKey("default", {
+  name: "Arch Laptop",
+  publicKey: std.file({
+    input: "/home/dispe/.ssh/id_rsa.pub",
+  }).then(invoke => invoke.result),
+});
+
+const gameAutoScale = new digitalocean.DropletAutoscale("game-server", {
+    name: "game-server",
     config: {
       minInstances: 1,
       maxInstances: 1,
@@ -73,23 +80,28 @@ function createAutoScaledDroplets(name: string, tags: pulumi.Input<string>[]) {
     },
     dropletTemplate: {
       projectId: project.id,
-      size: "s-1vcpu-512mb-10gb",
-      region: "sfo3",
+      size: digitalocean.DropletSlug.DropletS1VCPU512MB10GB,
+      region: digitalocean.Region.SFO3,
       image: "ubuntu-25-10-x64",
-      tags: tags,
-      sshKeys: [],
+      tags: [gameTag.name],
+      sshKeys: [sshKey.fingerprint],
       withDropletAgent: true,
       ipv6: true,
       userData: createUserData(),
     }
   });
+
+const createDroplet = (name: string, tags: pulumi.Output<string>[]) => {
+  return new digitalocean.Droplet(name, {
+    image: "ubuntu-25-10-x64",
+    name: name,
+    region: digitalocean.Region.SFO3,
+    size: digitalocean.DropletSlug.DropletS1VCPU512MB10GB,
+    tags: tags
+  });
 }
 
-const webAutoscale = createAutoScaledDroplets("web-server", [webTag.name]);
-const controlPlaneAutoscale = createAutoScaledDroplets("control-plane-server", [controlPlaneTag.name]);
-const gameAutoscale = createAutoScaledDroplets("game-server", [gameTag.name]);
+createDroplet("web-server", [webTag.name]);
+createDroplet("control-plane-server", [controlPlaneTag.name]);
 
 export const loadBalancerIP = loadBalancer.ip;
-export const webAutoscaleID = webAutoscale.id;
-export const controlPlaneAutoscaleID = controlPlaneAutoscale.id;
-export const gameAutoscaleID = gameAutoscale.id;
