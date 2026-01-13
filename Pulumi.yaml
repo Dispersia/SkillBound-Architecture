@@ -1,0 +1,12 @@
+name: SkillBound
+description: A minimal DigitalOcean TypeScript Pulumi program
+runtime:
+  name: nodejs
+  options:
+    packagemanager: yarn
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: digitalocean-typescript
+  digitalocean:token:
+    value: 'TODO: var.do_token'
